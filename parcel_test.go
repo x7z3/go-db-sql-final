@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -31,57 +31,112 @@ func getTestParcel() Parcel {
 // TestAddGetDelete проверяет добавление, получение и удаление посылки
 func TestAddGetDelete(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
+
+	assert.NoError(t, err, "SQL DB Connection error")
+
+	defer db.Close()
+
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
 
 	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := store.Add(parcel)
+
+	assert.NoError(t, err, "Ошибка добавления в БД")
+	assert.NotZero(t, id, "ID должен быть > 0")
 
 	// get
-	// получите только что добавленную посылку, убедитесь в отсутствии ошибки
-	// проверьте, что значения всех полей в полученном объекте совпадают со значениями полей в переменной parcel
+	p, err := store.Get(id)
+
+	assert.NoError(t, err, "Ошибка получения из БД")
+	assert.Equal(t, parcel.Address, p.Address, "Address не совпадают")
+	assert.Equal(t, parcel.Client, p.Client, "Client не совпадают")
+	assert.Equal(t, parcel.Status, p.Status, "Status не совпадают")
+	assert.Equal(t, parcel.CreatedAt, p.CreatedAt, "CreatedAt не совпадают")
 
 	// delete
-	// удалите добавленную посылку, убедитесь в отсутствии ошибки
-	// проверьте, что посылку больше нельзя получить из БД
+	err = store.Delete(id)
+
+	assert.NoError(t, err, "Ошибка удаления из БД")
+
+	p, err = store.Get(id)
+
+	assert.Error(t, err, "Нет ошибки при получении ранее удаленной записи")
+
 }
 
 // TestSetAddress проверяет обновление адреса
 func TestSetAddress(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
+
+	assert.NoError(t, err, "SQL DB Connection error")
+
+	defer db.Close()
+
+	store := NewParcelStore(db)
+	parcel := getTestParcel()
 
 	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := store.Add(parcel)
+
+	assert.NoError(t, err, "Ошибка добавления в БД")
 
 	// set address
-	// обновите адрес, убедитесь в отсутствии ошибки
 	newAddress := "new test address"
 
+	err = store.SetAddress(id, newAddress)
+
+	assert.NoError(t, err, "Ошибка при обновлении адреса для записи")
+
 	// check
-	// получите добавленную посылку и убедитесь, что адрес обновился
+	p, err := store.Get(id)
+
+	assert.NoError(t, err, "Ошибка получения из БД")
+
+	assert.Equal(t, newAddress, p.Address, "Адрес записи в БД не совпадает с обновленным ранее")
 }
 
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
 
+	assert.NoError(t, err, "SQL DB Connection error")
+
+	defer db.Close()
+
+	store := NewParcelStore(db)
+	parcel := getTestParcel()
 	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := store.Add(parcel)
+
+	assert.NoError(t, err, "Ошибка добавления в БД")
+	assert.NotZero(t, id, "ID должен быть > 0")
 
 	// set status
-	// обновите статус, убедитесь в отсутствии ошибки
+	err = store.SetStatus(id, ParcelStatusSent)
+
+	assert.NoError(t, err, "Ошибка обновления статуса записи")
 
 	// check
-	// получите добавленную посылку и убедитесь, что статус обновился
+	p, err := store.Get(id)
+
+	assert.NoError(t, err, "Ошибка получения из БД")
+	assert.Equal(t, ParcelStatusSent, p.Status, "Ошибка обновления статуса для записи в БД")
 }
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
 func TestGetByClient(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
+
+	assert.NoError(t, err, "SQL DB Connection error")
+
+	defer db.Close()
+
+	store := NewParcelStore(db)
 
 	parcels := []Parcel{
 		getTestParcel(),
@@ -98,24 +153,26 @@ func TestGetByClient(t *testing.T) {
 
 	// add
 	for i := 0; i < len(parcels); i++ {
-		id, err := // добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+		id, err := store.Add(parcels[i]) // добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+		assert.NoError(t, err, "Ошибка добавления в БД")
 
-		// обновляем идентификатор добавленной у посылки
 		parcels[i].Number = id
 
-		// сохраняем добавленную посылку в структуру map, чтобы её можно было легко достать по идентификатору посылки
-		parcelMap[id] = parcels[i]
+		parcelMap[i] = parcels[i]
 	}
 
 	// get by client
-	storedParcels, err := // получите список посылок по идентификатору клиента, сохранённого в переменной client
-	// убедитесь в отсутствии ошибки
-	// убедитесь, что количество полученных посылок совпадает с количеством добавленных
+	storedParcels, err := store.GetByClient(client) // получите список посылок по идентификатору клиента, сохранённого в переменной client
 
+	assert.NoError(t, err, "Ошибка получения списка посылок")
+	assert.Equal(t, 3, len(storedParcels), "Количество полученных записей меньше 3-х (добавленных)")
 	// check
-	for _, parcel := range storedParcels {
-		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
-		// убедитесь, что все посылки из storedParcels есть в parcelMap
-		// убедитесь, что значения полей полученных посылок заполнены верно
+	for id, parcel := range storedParcels {
+		p, ok := parcelMap[id]
+		assert.True(t, ok, "Индекса нет в мапе")
+		assert.Equal(t, p.Address, parcel.Address, "Address fields are not equal")
+		assert.Equal(t, p.Client, parcel.Client, "Clients fields are not equal")
+		assert.Equal(t, p.Status, parcel.Status, "Status fields are not equal")
+		assert.Equal(t, p.CreatedAt, parcel.CreatedAt, "CreatedAt fields are not equal")
 	}
 }
