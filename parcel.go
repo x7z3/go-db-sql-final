@@ -22,16 +22,17 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 		return 0, err
 	}
 
-	if id, err := r.LastInsertId(); err != nil {
+	id, err := r.LastInsertId()
+	if err != nil {
 		return 0, err
-	} else {
-		return int(id), nil
 	}
+
+	return int(id), nil
 }
 
 func (s ParcelStore) Get(number int) (Parcel, error) {
 	r := s.db.QueryRow(`
-	SELECT * FROM parcel
+	SELECT number, client, status, address, created_at FROM parcel
 	WHERE number = ? 
 	LIMIT 1
 	`, number)
@@ -50,12 +51,12 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	var res []Parcel
 
 	rows, err := s.db.Query(`
-	SELECT * FROM parcel
+	SELECT number, client, status, address, created_at FROM parcel
 	WHERE client = ?
 	`, client)
 
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -64,10 +65,14 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 
 		err = rows.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 		if err != nil {
-			return res, err
+			return nil, err
 		}
 
 		res = append(res, p)
+	}
+
+	if err = rows.Err(); err != nil {
+		return res, err
 	}
 
 	return res, nil
@@ -91,8 +96,8 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 	_, err := s.db.Exec(`
 	UPDATE parcel
 	SET address=?
-	WHERE number=? AND status='registered'
-	`, address, number)
+	WHERE number=? AND status=?
+	`, address, number, ParcelStatusRegistered)
 
 	if err != nil {
 		return err
@@ -104,8 +109,8 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 func (s ParcelStore) Delete(number int) error {
 	_, err := s.db.Exec(`
 	DELETE FROM parcel
-	WHERE number=? AND status='registered'
-	`, number)
+	WHERE number=? AND status=?
+	`, number, ParcelStatusRegistered)
 
 	if err != nil {
 		return err

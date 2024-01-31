@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -33,7 +33,7 @@ func TestAddGetDelete(t *testing.T) {
 	// prepare
 	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
 
-	assert.NoError(t, err, "SQL DB Connection error")
+	require.NoError(t, err, "SQL DB Connection error")
 
 	defer db.Close()
 
@@ -43,26 +43,25 @@ func TestAddGetDelete(t *testing.T) {
 	// add
 	id, err := store.Add(parcel)
 
-	assert.NoError(t, err, "Ошибка добавления в БД")
-	assert.NotZero(t, id, "ID должен быть > 0")
+	require.NoError(t, err, "Ошибка добавления в БД")
+	require.NotZero(t, id, "ID должен быть > 0")
+
+	parcel.Number = id
 
 	// get
 	p, err := store.Get(id)
 
-	assert.NoError(t, err, "Ошибка получения из БД")
-	assert.Equal(t, parcel.Address, p.Address, "Address не совпадают")
-	assert.Equal(t, parcel.Client, p.Client, "Client не совпадают")
-	assert.Equal(t, parcel.Status, p.Status, "Status не совпадают")
-	assert.Equal(t, parcel.CreatedAt, p.CreatedAt, "CreatedAt не совпадают")
+	require.NoError(t, err, "Ошибка получения из БД")
+	require.Equal(t, parcel, p, "Добавленная посылка не равна полученной из БД")
 
 	// delete
 	err = store.Delete(id)
 
-	assert.NoError(t, err, "Ошибка удаления из БД")
+	require.NoError(t, err, "Ошибка удаления из БД")
 
 	p, err = store.Get(id)
 
-	assert.Error(t, err, "Нет ошибки при получении ранее удаленной записи")
+	require.Error(t, err, "Нет ошибки при получении ранее удаленной записи")
 
 }
 
@@ -71,7 +70,7 @@ func TestSetAddress(t *testing.T) {
 	// prepare
 	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
 
-	assert.NoError(t, err, "SQL DB Connection error")
+	require.NoError(t, err, "SQL DB Connection error")
 
 	defer db.Close()
 
@@ -81,21 +80,22 @@ func TestSetAddress(t *testing.T) {
 	// add
 	id, err := store.Add(parcel)
 
-	assert.NoError(t, err, "Ошибка добавления в БД")
+	require.NoError(t, err, "Ошибка добавления в БД")
+	require.NotZero(t, id, "Id не должен равняться нулю")
 
 	// set address
 	newAddress := "new test address"
 
 	err = store.SetAddress(id, newAddress)
 
-	assert.NoError(t, err, "Ошибка при обновлении адреса для записи")
+	require.NoError(t, err, "Ошибка при обновлении адреса для записи")
 
 	// check
 	p, err := store.Get(id)
 
-	assert.NoError(t, err, "Ошибка получения из БД")
+	require.NoError(t, err, "Ошибка получения из БД")
 
-	assert.Equal(t, newAddress, p.Address, "Адрес записи в БД не совпадает с обновленным ранее")
+	require.Equal(t, newAddress, p.Address, "Адрес записи в БД не совпадает с обновленным ранее")
 }
 
 // TestSetStatus проверяет обновление статуса
@@ -103,7 +103,7 @@ func TestSetStatus(t *testing.T) {
 	// prepare
 	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
 
-	assert.NoError(t, err, "SQL DB Connection error")
+	require.NoError(t, err, "SQL DB Connection error")
 
 	defer db.Close()
 
@@ -112,19 +112,19 @@ func TestSetStatus(t *testing.T) {
 	// add
 	id, err := store.Add(parcel)
 
-	assert.NoError(t, err, "Ошибка добавления в БД")
-	assert.NotZero(t, id, "ID должен быть > 0")
+	require.NoError(t, err, "Ошибка добавления в БД")
+	require.NotZero(t, id, "ID должен быть > 0")
 
 	// set status
 	err = store.SetStatus(id, ParcelStatusSent)
 
-	assert.NoError(t, err, "Ошибка обновления статуса записи")
+	require.NoError(t, err, "Ошибка обновления статуса записи")
 
 	// check
 	p, err := store.Get(id)
 
-	assert.NoError(t, err, "Ошибка получения из БД")
-	assert.Equal(t, ParcelStatusSent, p.Status, "Ошибка обновления статуса для записи в БД")
+	require.NoError(t, err, "Ошибка получения из БД")
+	require.Equal(t, ParcelStatusSent, p.Status, "Ошибка обновления статуса для записи в БД")
 }
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
@@ -132,7 +132,7 @@ func TestGetByClient(t *testing.T) {
 	// prepare
 	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
 
-	assert.NoError(t, err, "SQL DB Connection error")
+	require.NoError(t, err, "SQL DB Connection error")
 
 	defer db.Close()
 
@@ -154,25 +154,22 @@ func TestGetByClient(t *testing.T) {
 	// add
 	for i := 0; i < len(parcels); i++ {
 		id, err := store.Add(parcels[i]) // добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
-		assert.NoError(t, err, "Ошибка добавления в БД")
+		require.NoError(t, err, "Ошибка добавления в БД")
 
 		parcels[i].Number = id
 
-		parcelMap[i] = parcels[i]
+		parcelMap[id] = parcels[i]
 	}
 
 	// get by client
 	storedParcels, err := store.GetByClient(client) // получите список посылок по идентификатору клиента, сохранённого в переменной client
 
-	assert.NoError(t, err, "Ошибка получения списка посылок")
-	assert.Equal(t, 3, len(storedParcels), "Количество полученных записей меньше 3-х (добавленных)")
+	require.NoError(t, err, "Ошибка получения списка посылок")
+	require.Equal(t, len(parcels), len(storedParcels), "Количество полученных записей меньше 3-х (добавленных)")
 	// check
-	for id, parcel := range storedParcels {
-		p, ok := parcelMap[id]
-		assert.True(t, ok, "Индекса нет в мапе")
-		assert.Equal(t, p.Address, parcel.Address, "Address fields are not equal")
-		assert.Equal(t, p.Client, parcel.Client, "Clients fields are not equal")
-		assert.Equal(t, p.Status, parcel.Status, "Status fields are not equal")
-		assert.Equal(t, p.CreatedAt, parcel.CreatedAt, "CreatedAt fields are not equal")
+	for _, parcel := range storedParcels {
+		p, ok := parcelMap[parcel.Number]
+		require.True(t, ok, "Индекса нет в мапе")
+		require.Equal(t, p, parcel, "Посылка полученная с БД не равна добавленной")
 	}
 }
